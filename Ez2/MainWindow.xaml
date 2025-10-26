@@ -1,0 +1,38 @@
+﻿<Window x:Class="Ez2.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Ez2"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="150"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button x:Name="startButton" Content="Запустить систему" Click="StartButton_Click" Margin="0,0,10,0"/>
+            <Button x:Name="stopButton" Content="Остановить систему" Click="StopButton_Click" Margin="0,0,10,0"/>
+            <TextBlock x:Name="statusText" VerticalAlignment="Center" FontSize="14" FontWeight="Bold"/>
+        </StackPanel>
+
+        <GroupBox Grid.Row="1" Header="Производитель (добавляет каждые 500мс)" Margin="0,0,0,10">
+            <ListBox x:Name="producerListBox"/>
+        </GroupBox>
+
+        <TextBlock Grid.Row="2" x:Name="queueStatusText" FontSize="12" Margin="0,0,0,10"/>
+
+        <GroupBox Grid.Row="3" Header="Потребитель (обрабатывает каждые 1000мс)" Margin="0,0,0,10">
+            <ListBox x:Name="consumerListBox"/>
+        </GroupBox>
+
+        <ScrollViewer Grid.Row="4">
+            <TextBlock x:Name="logText" TextWrapping="Wrap" FontSize="11"/>
+        </ScrollViewer>
+    </Grid>
+</Window>
