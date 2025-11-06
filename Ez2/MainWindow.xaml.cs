@@ -16,136 +16,69 @@ namespace Ez2
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Queue<string> _queue = new Queue<string>();
         private readonly object _lock = new object();
-        private CancellationTokenSource _cancellationTokenSource;
-        private int _producedCount = 0;
-        private int _consumedCount = 0;
+        private readonly Queue<string> _queue = new Queue<string>();
+        private volatile bool _running = false;
+        private Thread _producer, _consumer;
 
         public MainWindow()
         {
             InitializeComponent();
-            UpdateStatus();
         }
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            _cancellationTokenSource = new CancellationTokenSource();
-            _queue.Clear();
-            producerListBox.Items.Clear();
-            consumerListBox.Items.Clear();
-            _producedCount = 0;
-            _consumedCount = 0;
-
-            logText.Text = "Система запущена...\n";
-            statusText.Text = "СИСТЕМА ЗАПУЩЕНА";
-
-            // Запускаем производителя
-            Task.Run(() => Producer(_cancellationTokenSource.Token));
-
-            // Запускаем потребителя
-            Task.Run(() => Consumer(_cancellationTokenSource.Token));
-
-            UpdateStatus();
+            if (_running) return;
+            _running = true;
+            _producer = new Thread(Producer);
+            _consumer = new Thread(Consumer);
+            _producer.Start();
+            _consumer.Start();
         }
 
         private void StopButton_Click(object sender, RoutedEventArgs e)
         {
-            _cancellationTokenSource?.Cancel();
-            statusText.Text = "СИСТЕМА ОСТАНОВЛЕНА";
-            logText.Text += "Система остановлена.\n";
+            _running = false;
+            lock (_lock) Monitor.PulseAll(_lock);
         }
 
-        private void Producer(CancellationToken cancellationToken)
+        private void Producer()
         {
-            while (!cancellationToken.IsCancellationRequested)
+            int i = 0;
+            while (_running)
             {
-                try
+                lock (_lock)
                 {
-                    string item = $"Элемент {++_producedCount} (Время: {DateTime.Now:HH:mm:ss.fff})";
-
-                    lock (_lock)
-                    {
-                        _queue.Enqueue(item);
-
-                        Dispatcher.Invoke(() =>
-                        {
-                            producerListBox.Items.Add(item);
-                            logText.Text += $"[Производитель] Добавлен: {item}\n";
-                        });
-
-                        // Уведомляем потребителя, что появились элементы
-                        Monitor.Pulse(_lock);
-                    }
-
-                    Thread.Sleep(500); // Добавляем элемент каждые 500мс
+                    _queue.Enqueue($"Item-{i++}");
+                    Log($"Produced: Item-{i - 1}");
+                    Monitor.Pulse(_lock);
                 }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
+                Thread.Sleep(500);
             }
         }
 
-        private void Consumer(CancellationToken cancellationToken)
+        private void Consumer()
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (_running)
             {
-                try
+                string item = null;
+                lock (_lock)
                 {
-                    string item = null;
+                    while (_queue.Count == 0 && _running)
+                        Monitor.Wait(_lock);
 
-                    lock (_lock)
-                    {
-                        // Ждем, пока появятся элементы в очереди
-                        while (_queue.Count == 0 && !cancellationToken.IsCancellationRequested)
-                        {
-                            Monitor.Wait(_lock, 1000); // Ждем с таймаутом 1 секунда
-                        }
-
-                        if (_queue.Count > 0)
-                        {
-                            item = _queue.Dequeue();
-                            _consumedCount++;
-                        }
-                    }
-
-                    if (item != null)
-                    {
-                        // Имитируем обработку
-                        Thread.Sleep(300);
-
-                        Dispatcher.Invoke(() =>
-                        {
-                            consumerListBox.Items.Add($"{item} → Обработан");
-                            logText.Text += $"[Потребитель] Обработан: {item}\n";
-                            UpdateStatus();
-                        });
-
-                        Thread.Sleep(700); // Общая задержка 1000мс между обработками
-                    }
+                    if (!_running) return;
+                    item = _queue.Dequeue();
                 }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
+
+                Log($"Consumed: {item}");
+                Thread.Sleep(1000);
             }
         }
 
-        private void UpdateStatus()
+        private void Log(string message)
         {
-            Dispatcher.Invoke(() =>
-            {
-                queueStatusText.Text = $"Очередь: {_queue.Count} элементов | " +
-                                     $"Произведено: {_producedCount} | " +
-                                     $"Обработано: {_consumedCount}";
-            });
-        }
-
-        protected override void OnClosed(EventArgs e)
-        {
-            _cancellationTokenSource?.Cancel();
-            base.OnClosed(e);
+            Dispatcher.Invoke(() => LogBox.Items.Add($"{DateTime.Now:HH:mm:ss} {message}"));
         }
     }
 }
